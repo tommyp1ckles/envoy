@@ -195,7 +195,7 @@ private:
     case PredicateType::MATCH_TYPE_NOT_SET:
       PANIC_DUE_TO_PROTO_UNSET;
     }
-    PANIC_DUE_TO_CORRUPT_ENUM;
+    throw EnvoyException(absl::StrCat("unexpected matcher type", field_predicate.match_type_case()));
   }
 
   template <class MatcherType>
@@ -236,7 +236,7 @@ private:
                                                   *this);
     }
     }
-    PANIC_DUE_TO_CORRUPT_ENUM;
+    throw EnvoyException(absl::StrCat("unexpected matcher type", matcher.matcher_tree().tree_type_case())); 
   }
 
   template <class OnMatchType>
@@ -320,7 +320,7 @@ private:
     case SinglePredicateType::MATCHER_NOT_SET:
       PANIC_DUE_TO_PROTO_UNSET;
     }
-    PANIC_DUE_TO_CORRUPT_ENUM;
+    throw EnvoyException(absl::StrCat("unexpected predicate matcher type", predicate.matcher_case())); 
   }
 
   const std::string stats_prefix_;
