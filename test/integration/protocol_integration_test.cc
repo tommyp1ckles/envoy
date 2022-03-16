@@ -1127,7 +1127,7 @@ TEST_P(DownstreamProtocolIntegrationTest, RetryHostPredicateFilter) {
   EXPECT_EQ(512U, response->body().size());
 }
 
-// Very similar set-up to testRetry but with a 16k request the request will not
+// Very similar set-up to testRetry but with a 65k request the request will not
 // be buffered and the 503 will be returned to the user.
 TEST_P(ProtocolIntegrationTest, RetryHittingBufferLimit) {
   config_helper_.setBufferLimits(1024, 1024); // Set buffer limits upstream and downstream.
@@ -1493,7 +1493,8 @@ TEST_P(ProtocolIntegrationTest, HeadersWithUnderscoresDropped) {
     stat_name = "http3.dropped_headers_with_underscores";
     break;
   default:
-    RELEASE_ASSERT(false, fmt::format("Unknown downstream protocol {}", downstream_protocol_));
+    RELEASE_ASSERT(false, fmt::format("Unknown downstream protocol {}",
+                                      static_cast<int>(downstream_protocol_)));
   };
   EXPECT_EQ(1L, TestUtility::findCounter(stats, stat_name)->value());
 }
@@ -2563,6 +2564,66 @@ TEST_P(DownstreamProtocolIntegrationTest, BasicMaxStreamTimeout) {
 
   test_server_->waitForCounterGe("http.config_test.downstream_rq_max_duration_reached", 1);
   ASSERT_TRUE(response->waitForEndStream());
+  ASSERT_TRUE(response->complete());
+  EXPECT_EQ("408", response->headers().getStatusValue());
+}
+
+// Test that when request timeout and the request is completed, the gateway timeout (504) is
+// returned as response code instead of request timeout (408).
+TEST_P(ProtocolIntegrationTest, MaxStreamTimeoutWhenRequestIsNotComplete) {
+  config_helper_.setDownstreamMaxStreamDuration(std::chrono::milliseconds(500));
+
+  autonomous_upstream_ = false;
+
+  initialize();
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+
+  // The request is not header only. Envoy is expecting more data to end the request.
+  auto encoder_decoder =
+      codec_client_->startRequest(default_request_headers_, /*header_only_request=*/true);
+  request_encoder_ = &encoder_decoder.first;
+  auto response = std::move(encoder_decoder.second);
+
+  ASSERT_TRUE(fake_upstreams_[0]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_));
+  ASSERT_TRUE(fake_upstream_connection_->waitForNewStream(*dispatcher_, upstream_request_));
+  ASSERT_TRUE(upstream_request_->waitForHeadersComplete());
+
+  test_server_->waitForCounterGe("http.config_test.downstream_rq_max_duration_reached", 1);
+  ASSERT_TRUE(response->waitForEndStream());
+
+  EXPECT_TRUE(upstream_request_->complete());
+  ASSERT_TRUE(response->complete());
+  EXPECT_EQ("504", response->headers().getStatusValue());
+}
+
+// Test case above except disabling runtime guard "override_request_timeout_by_gateway_timeout".
+// Verify the old behavior is reverted by disabling the runtime guard.
+TEST_P(ProtocolIntegrationTest, MaxStreamTimeoutWhenRequestIsNotCompleteRuntimeDisabled) {
+  config_helper_.setDownstreamMaxStreamDuration(std::chrono::milliseconds(500));
+
+  config_helper_.addRuntimeOverride(
+      "envoy.reloadable_features.override_request_timeout_by_gateway_timeout", "false");
+  autonomous_upstream_ = false;
+
+  initialize();
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+
+  // The request is not header only. Envoy is expecting more data to end the request.
+  auto encoder_decoder =
+      codec_client_->startRequest(default_request_headers_, /*header_only_request=*/true);
+  request_encoder_ = &encoder_decoder.first;
+  auto response = std::move(encoder_decoder.second);
+
+  ASSERT_TRUE(fake_upstreams_[0]->waitForHttpConnection(*dispatcher_, fake_upstream_connection_));
+  ASSERT_TRUE(fake_upstream_connection_->waitForNewStream(*dispatcher_, upstream_request_));
+  ASSERT_TRUE(upstream_request_->waitForHeadersComplete());
+
+  test_server_->waitForCounterGe("http.config_test.downstream_rq_max_duration_reached", 1);
+  ASSERT_TRUE(response->waitForEndStream());
+
+  EXPECT_TRUE(upstream_request_->complete());
+  ASSERT_TRUE(response->complete());
+  EXPECT_EQ("408", response->headers().getStatusValue());
 }
 
 TEST_P(DownstreamProtocolIntegrationTest, MaxRequestsPerConnectionReached) {
@@ -3448,6 +3509,58 @@ TEST_P(ProtocolIntegrationTest, FragmentStrippedFromPathWithOverride) {
   EXPECT_TRUE(upstream_request_->complete());
   ASSERT_TRUE(response->complete());
   EXPECT_EQ("200", response->headers().getStatusValue());
+}
+
+// Test buffering and then continuing after too many response bytes to buffer.
+TEST_P(ProtocolIntegrationTest, BufferContinue) {
+  // Bytes sent is configured for http/2 flow control windows.
+  if (upstreamProtocol() != Http::CodecType::HTTP2) {
+    return;
+  }
+  config_helper_.addConfigModifier(
+      [&](envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager&
+              hcm) -> void {
+        auto* route_config = hcm.mutable_route_config();
+        auto* virtual_host = route_config->mutable_virtual_hosts(0);
+        auto* header = virtual_host->mutable_response_headers_to_add()->Add()->mutable_header();
+        header->set_key("foo");
+        header->set_value("bar");
+      });
+
+  useAccessLog();
+  config_helper_.addFilter("{ name: buffer-continue-filter, typed_config: { \"@type\": "
+                           "type.googleapis.com/google.protobuf.Empty } }");
+  config_helper_.setBufferLimits(1024, 1024);
+  initialize();
+
+  // Send the request.
+  codec_client_ = makeHttpConnection(lookupPort("http"));
+  auto encoder_decoder = codec_client_->startRequest(default_request_headers_);
+  auto downstream_request = &encoder_decoder.first;
+  auto response = std::move(encoder_decoder.second);
+  Buffer::OwnedImpl data("HTTP body content goes here");
+  codec_client_->sendData(*downstream_request, data, true);
+  waitForNextUpstreamRequest();
+
+  // Send the response headers.
+  upstream_request_->encodeHeaders(default_response_headers_, false);
+
+  // Now send an overly large response body. At some point, too much data will
+  // be buffered, the stream will be reset, and the connection will disconnect.
+  upstream_request_->encodeData(512, false);
+  upstream_request_->encodeData(1024 * 100, false);
+
+  if (upstreamProtocol() == Http::CodecType::HTTP1) {
+    ASSERT_TRUE(fake_upstream_connection_->waitForDisconnect());
+  } else {
+    ASSERT_TRUE(upstream_request_->waitForReset());
+    ASSERT_TRUE(fake_upstream_connection_->close());
+    ASSERT_TRUE(fake_upstream_connection_->waitForDisconnect());
+  }
+
+  ASSERT_TRUE(response->waitForEndStream());
+  EXPECT_TRUE(response->complete());
+  EXPECT_EQ("500", response->headers().getStatusValue());
 }
 
 TEST_P(DownstreamProtocolIntegrationTest, ContentLengthSmallerThanPayload) {
