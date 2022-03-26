@@ -108,5 +108,20 @@ TEST_F(ListenerFilterMatcherTest, AndMatcher) {
   EXPECT_FALSE(matcher->matches(*(handle80->callback_)));
   EXPECT_TRUE(matcher->matches(*(handle443->callback_)));
 }
+
+TEST_F(ListenerFilterMatcherTest, UnexpectedMatcher) {
+  pred.mutable_and_match()->mutable_rules()->Add()->MergeFrom(pred80_3306);
+  pred.mutable_and_match()->mutable_rules()->Add()->MergeFrom(pred443_3306);
+
+  auto matcher = ListenerFilterMatcherBuilder::buildListenerFilterMatcher(pred);
+  auto handle80 = createCallbackOnPort(80);
+  auto handle443 = createCallbackOnPort(443);
+  auto handle3306 = createCallbackOnPort(3306);
+
+  EXPECT_FALSE(matcher->matches(*(handle3306->callback_)));
+  EXPECT_FALSE(matcher->matches(*(handle80->callback_)));
+  EXPECT_TRUE(matcher->matches(*(handle443->callback_)));
+}
+
 } // namespace Network
 } // namespace Envoy

@@ -65,6 +65,7 @@ public:
    * state that not owned by the listener.
    */
   std::unique_ptr<ActiveTcpSocket> removeSocket(ActiveTcpSocket&& socket) {
+    ENVOY_LOG(info, absl::StrCat("[ACTIVE STRM] REMOVING SOCKET: ", sockets_.size()));
     return socket.removeFromList(sockets_);
   }
 
@@ -93,6 +94,7 @@ public:
       active_socket->startTimer();
       LinkedList::moveIntoListBack(std::move(active_socket), sockets_);
     } else {
+      ENVOY_LOG(info, absl::StrCat("[ACTIVE STRM] ON SOCKET ACCEPT: ", sockets_.size()));
       if (!active_socket->connected_) {
         // If active_socket is about to be destructed, emit logs if a connection is not created.
         if (active_socket->stream_info_ != nullptr) {

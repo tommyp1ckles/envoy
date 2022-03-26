@@ -1,5 +1,6 @@
 #include "source/extensions/filters/udp/udp_proxy/hash_policy_impl.h"
 
+#include "envoy/common/exception.h"
 #include "source/common/common/assert.h"
 #include "source/common/common/macros.h"
 
@@ -7,6 +8,8 @@ namespace Envoy {
 namespace Extensions {
 namespace UdpFilters {
 namespace UdpProxy {
+
+using HashPolicyImplPtr = std::unique_ptr<const HashPolicyImpl>;
 
 class SourceIpHashMethod : public HashPolicyImpl::HashMethod {
 public:
@@ -48,7 +51,7 @@ HashPolicyImpl::HashPolicyImpl(
     hash_impl_ = std::make_unique<KeyHashMethod>(hash_policies[0]->key());
     break;
   case UdpProxyConfig::HashPolicy::PolicySpecifierCase::POLICY_SPECIFIER_NOT_SET:
-    PANIC_DUE_TO_CORRUPT_ENUM;
+    throw EnvoyException(absl::StrCat("hash policy specifier not set"));
   }
 }
 

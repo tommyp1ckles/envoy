@@ -347,7 +347,7 @@ ListenerImpl::ListenerImpl(const envoy::config::listener::v3::Listener& config,
               parent_.server_.singletonManager(), parent_.server_.threadLocal(),
               validation_visitor_, parent_.server_.api(), parent_.server_.options())),
       quic_stat_names_(parent_.quicStatNames()) {
-
+  ENVOY_LOG(info, absl::StrCat("!!! Creating listener: ", address_->asStringView()));
   if ((address_->type() == Network::Address::Type::Ip &&
        config.address().socket_address().ipv4_compat()) &&
       (address_->ip()->version() != Network::Address::IpVersion::v6 ||

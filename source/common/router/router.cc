@@ -1251,7 +1251,10 @@ Filter::streamResetReasonToResponseFlag(Http::StreamResetReason reset_reason) {
     return StreamInfo::ResponseFlag::OverloadManager;
   }
 
-  PANIC_DUE_TO_CORRUPT_ENUM;
+  // @Todo(Tom): Take another look at this.
+  IS_ENVOY_BUG("unexpected stream reset reason enum provided");
+  //return StreamInfo::ResponseFlag::Unknown;
+  return static_cast<StreamInfo::ResponseFlag>(0);
 }
 
 void Filter::handleNon5xxResponseHeaders(absl::optional<Grpc::Status::GrpcStatus> grpc_status,

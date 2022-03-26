@@ -34,6 +34,7 @@ ActiveTcpListener::ActiveTcpListener(Network::TcpConnectionHandler& parent,
 }
 
 ActiveTcpListener::~ActiveTcpListener() {
+  ENVOY_LOG(info, "Destroying TCP listener!");
   is_deleting_ = true;
   config_->connectionBalancer().unregisterHandler(*this);
 
@@ -70,6 +71,7 @@ void ActiveTcpListener::updateListenerConfig(Network::ListenerConfig& config) {
 }
 
 void ActiveTcpListener::onAccept(Network::ConnectionSocketPtr&& socket) {
+  ENVOY_LOG(info, "[???] ----> On Accept ACTIVE TCP connection!!!");
   if (listenerConnectionLimitReached()) {
     RELEASE_ASSERT(socket->connectionInfoProvider().remoteAddress() != nullptr, "");
     ENVOY_LOG(trace, "closing connection from {}: listener connection limit reached for {}",
@@ -96,6 +98,7 @@ void ActiveTcpListener::onReject(RejectCause cause) {
 void ActiveTcpListener::onAcceptWorker(Network::ConnectionSocketPtr&& socket,
                                        bool hand_off_restored_destination_connections,
                                        bool rebalanced) {
+  ENVOY_LOG(info, "[TCP_LISTENER] Running on accept worker");
   if (!rebalanced) {
     Network::BalancedConnectionHandler& target_handler =
         config_->connectionBalancer().pickTargetHandler(*this);
@@ -150,6 +153,7 @@ void ActiveTcpListener::post(Network::ConnectionSocketPtr&& socket) {
   // bundle the socket inside a shared_ptr that can be captured.
   // TODO(mattklein123): It may be possible to change the post() API such that the lambda is only
   // moved, but this is non-trivial and needs investigation.
+  ENVOY_LOG(info, "POSTING A SOCKET TO ACTIVE CONNECTION LISTENER");
   RebalancedSocketSharedPtr socket_to_rebalance = std::make_shared<RebalancedSocket>();
   socket_to_rebalance->socket = std::move(socket);
 

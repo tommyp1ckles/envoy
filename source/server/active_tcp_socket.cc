@@ -71,6 +71,7 @@ void ActiveTcpSocket::unlink() {
 }
 
 void ActiveTcpSocket::continueFilterChain(bool success) {
+  ENVOY_LOG(info, absl::StrCat("[ACTIVE_TCP] --------------------------------------------------------------------------> Continuing filter chain", accept_filters_.size()));
   if (success) {
     bool no_error = true;
     if (iter_ == accept_filters_.end()) {
