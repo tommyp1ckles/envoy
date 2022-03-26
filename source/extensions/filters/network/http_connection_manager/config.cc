@@ -426,7 +426,7 @@ HttpConnectionManagerConfig::HttpConnectionManagerConfig(
     break;
   case envoy::extensions::filters::network::http_connection_manager::v3::HttpConnectionManager::
       RouteSpecifierCase::ROUTE_SPECIFIER_NOT_SET:
-    PANIC_DUE_TO_CORRUPT_ENUM;
+    throw EnvoyException("HTTP route specifier not set");
   }
 
   switch (config.forward_client_cert_details()) {

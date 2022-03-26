@@ -150,6 +150,10 @@ void Utility::responseFlagsToAccessLogResponseFlags(
   if (stream_info.hasResponseFlag(StreamInfo::ResponseFlag::DnsResolutionFailed)) {
     common_access_log.mutable_response_flags()->set_dns_resolution_failure(true);
   }
+
+  if (stream_info.hasResponseFlag(StreamInfo::ResponseFlag::Unknown)) {
+    common_access_log.mutable_response_flags()->set_unknown(true);
+  }
 }
 
 void Utility::extractCommonAccessLogProperties(

@@ -1022,7 +1022,8 @@ OcspStapleAction ServerContextImpl::ocspStapleAction(const TlsContext& ctx,
     }
     return OcspStapleAction::Staple;
   }
-  throw EnvoyException(absl::StrCat("unexpected staple policy enum", policy));
+  IS_ENVOY_BUG("unexpected ocsp staple action policy enum");
+  return OcspStapleAction::Fail;
 }
 
 enum ssl_select_cert_result_t

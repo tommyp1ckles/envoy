@@ -181,7 +181,7 @@ RouteMatcher::RouteMatcher(
       routes_.emplace_back(new ServiceNameRouteEntryImpl(route));
       break;
     case RouteMatch::MatchSpecifierCase::MATCH_SPECIFIER_NOT_SET:
-      PANIC_DUE_TO_CORRUPT_ENUM;
+      throw EnvoyException("RouteMatcher route specifier not set");
     }
   }
 }

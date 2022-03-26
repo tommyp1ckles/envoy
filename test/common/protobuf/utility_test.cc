@@ -2160,4 +2160,10 @@ TEST_F(StructUtilTest, StructUtilUpdateRecursiveStruct) {
   EXPECT_TRUE(ValueUtil::equal(tags.at("tag1"), ValueUtil::stringValue("1")));
 }
 
+TEST_F(StructUtilTest, FractionalPercentDenominatorToIntTest) {
+  EXPECT_ENVOY_BUG(
+    ProtobufPercentHelper::fractionalPercentDenominatorToInt(static_cast<envoy::type::v3::FractionalPercent::DenominatorType>(123)),
+    "unexpected denominator type enum");
+}
+
 } // namespace Envoy

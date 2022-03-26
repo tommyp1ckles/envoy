@@ -32,6 +32,7 @@ void ConnectionHandlerImpl::addListener(absl::optional<uint64_t> overridden_list
                                         Network::ListenerConfig& config, Runtime::Loader& runtime) {
   const bool support_udp_in_place_filter_chain_update = Runtime::runtimeFeatureEnabled(
       "envoy.reloadable_features.udp_listener_updates_filter_chain_in_place");
+  ENVOY_LOG(info, "[???] Adding listener to the connection handler");
   if (support_udp_in_place_filter_chain_update && overridden_listener.has_value()) {
     ActiveListenerDetailsOptRef listener_detail =
         findActiveListenerByTag(overridden_listener.value());
@@ -62,6 +63,7 @@ void ConnectionHandlerImpl::addListener(absl::optional<uint64_t> overridden_list
       }
       IS_ENVOY_BUG("unexpected");
     }
+    ENVOY_LOG(info, "Creating TCP Stream socket type!!");
     // worker_index_ doesn't have a value on the main thread for the admin server.
     auto tcp_listener = std::make_unique<ActiveTcpListener>(
         *this, config, runtime, worker_index_.has_value() ? *worker_index_ : 0);
@@ -300,6 +302,7 @@ ConnectionHandlerImpl::getBalancedHandlerByAddress(const Network::Address::Insta
   // Only Ip address can be restored to original address and redirect.
   ASSERT(address.type() == Network::Address::Type::Ip);
 
+  ENVOY_LOG(info, absl::StrCat("########################## GETTING BALANCED HANDLER BY ADDR: ", address.asStringView()));
   // We do not return stopped listeners.
   // If there is exact address match, return the corresponding listener.
   if (auto listener_it = tcp_listener_map_by_address_.find(address.asStringView());

@@ -308,6 +308,7 @@ RequestDecoder& ConnectionManagerImpl::newStream(ResponseEncoder& response_encod
                                               std::move(downstream_stream_account)));
 
   accumulated_requests_++;
+
   if (config_.maxRequestsPerConnection() > 0 &&
       accumulated_requests_ >= config_.maxRequestsPerConnection()) {
     if (codec_->protocol() < Protocol::Http2) {
@@ -372,9 +373,14 @@ Network::FilterStatus ConnectionManagerImpl::onData(Buffer::Instance& data, bool
     // Http3 codec should have been instantiated by now.
     createCodec(data);
   }
+  //for (auto stream : streams_) {
+  //  stream->dumpState(std::cout);
+  //}
 
   bool redispatch;
+
   do {
+    ENVOY_LOG(info, "[CONN_MANAGER_IMPL] Entering on data loop for conn manager.....................................................");
     redispatch = false;
 
     const Status status = codec_->dispatch(data);

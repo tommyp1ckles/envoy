@@ -62,19 +62,21 @@ void UdpStatsdSink::flush(Stats::MetricSnapshot& snapshot) {
 
   for (const auto& counter : snapshot.counters()) {
     if (counter.counter_.get().used()) {
-      absl::optional<std::string> counter_str = buildMessage(counter.counter_.get(), counter.delta_, "|c");
-      if (counter_str.has_value()) {
-        writeBuffer(buffer, writer, counter_str.value());
+      absl::optional<const std::string> counter_str = buildMessage(counter.counter_.get(), counter.delta_, "|c");
+      if (!counter_str) {
+        return;
       }
+      writeBuffer(buffer, writer, counter_str.value());
     }
   }
 
   for (const auto& gauge : snapshot.gauges()) {
     if (gauge.get().used()) {
       absl::optional<const std::string> gauge_str = buildMessage(gauge.get(), gauge.get().value(), "|g");
-      if (gauge_str.has_value()) {
-        writeBuffer(buffer, writer, gauge_str.value());
+      if (!gauge_str) {
+        return;
       }
+      writeBuffer(buffer, writer, gauge_str.value());
     }
   }
 
@@ -123,9 +125,19 @@ void UdpStatsdSink::onHistogramComplete(const Stats::Histogram& histogram, uint6
     constexpr float divisor = Stats::Histogram::PercentScale;
     const float float_value = value;
     const float scaled = float_value / divisor;
-    message = buildMessage(histogram, scaled, "|h");
+    //message = buildMessage(histogram, scaled, "|h");
+    //absl::optional<const std::string> message = buildMessage(histogram, scaled, "|h");
+    auto message_opt = buildMessage(histogram, scaled, "|h");
+    if (!message_opt) {
+      return;
+    }
+    message = message_opt.value();
   } else {
-    message = buildMessage(histogram, std::chrono::milliseconds(value).count(), "|ms");
+    auto message_opt = buildMessage(histogram, std::chrono::milliseconds(value).count(), "|ms");
+    if (!message_opt) {
+      return;
+    }
+    message = message_opt.value();
   }
 
   if (message) {
@@ -145,7 +157,7 @@ absl::optional<const std::string> UdpStatsdSink::buildMessage(const Stats::Metri
         ":", value, type,
         // tags
         buildTagStr(metric.tags()));
-    return absl::make_optional<std::string>(message);
+    return absl::make_optional(std::move(message));
   }
 
   case Statsd::TagPosition::TagAfterName: {
@@ -156,10 +168,10 @@ absl::optional<const std::string> UdpStatsdSink::buildMessage(const Stats::Metri
         buildTagStr(metric.tags()),
         // value and type
         ":", value, type);
-    return absl::make_optional<std::string>(message);
+    return absl::make_optional(std::move(message));
   }
   }
-  IS_ENVOY_BUG("unexpected statsd message tag position");
+  IS_ENVOY_BUG("unexpected tag format tag position enum");
   return absl::nullopt;
 }
 
