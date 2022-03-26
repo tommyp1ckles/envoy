@@ -57,6 +57,24 @@ HashPolicyImpl::generateHash(const Network::Address::Instance& downstream_addr) 
   return hash_impl_->evaluate(downstream_addr);
 }
 
+static HashPolicyPtr
+HashPolicyFactoryImpl::create(const absl::Span<const UdpProxyConfig::HashPolicyPtr>& hash_policies) {
+  ASSERT(hash_policies.size() == 1);
+  switch (hash_policies[0]->policy_specifier_case()) {
+  case UdpProxyConfig::HashPolicy::PolicySpecifierCase::kSourceIp:
+    hash_impl_ = std::make_unique<SourceIpHashMethod>();
+    break;
+  case UdpProxyConfig::HashPolicy::PolicySpecifierCase::kKey:
+    hash_impl_ = std::make_unique<KeyHashMethod>(hash_policies[0]->key());
+    break;
+  case UdpProxyConfig::HashPolicy::PolicySpecifierCase::POLICY_SPECIFIER_NOT_SET:
+    return nullptr;
+  }
+  IS_ENVOY_BUG("unexpected hash policy specifier case");
+  return nullptr;
+}
+
+
 } // namespace UdpProxy
 } // namespace UdpFilters
 } // namespace Extensions

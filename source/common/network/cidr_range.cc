@@ -100,8 +100,8 @@ std::string CidrRange::asString() const {
 
 // static
 CidrRange CidrRange::create(InstanceConstSharedPtr address, int length) {
-  InstanceConstSharedPtr ptr = truncateIpAddressAndLength(std::move(address), &length);
-  return CidrRange(std::move(ptr), length);
+  std::tuple<InstanceConstSharedPtr, int> ptr_and_length = truncateIpAddressAndLength(std::move(address), length);
+  return CidrRange(std::move(ptr_and_length.first), ptr_and_length.second);
 }
 
 // static
@@ -136,22 +136,20 @@ CidrRange CidrRange::create(const std::string& range) {
 }
 
 // static
-InstanceConstSharedPtr CidrRange::truncateIpAddressAndLength(InstanceConstSharedPtr address,
-                                                             int* length_io) {
-  int length = *length_io;
+std::tuple<InstanceConstSharedPtr, int> CidrRange::truncateIpAddressAndLength(InstanceConstSharedPtr address,
+                                                             int length_io) {
+  int length = length_io;
   if (address == nullptr || length < 0 || address->type() != Type::Ip) {
-    *length_io = -1;
-    return nullptr;
+    return std::make_tuple<nullptr, -1>;
   }
   switch (address->ip()->version()) {
   case IpVersion::v4: {
     if (length >= 32) {
       // We're using all of the bits, so don't need to create a new address instance.
-      *length_io = 32;
-      return address;
+      return std::make_tuple(address, 32);
     } else if (length == 0) {
       // Create an Ipv4Instance with only a port, which will thus have the any address.
-      return std::make_shared<Ipv4Instance>(uint32_t(0));
+      return std::make_tuple(std::make_shared<Ipv4Instance>(uint32_t(0)), length);
     }
     // Need to mask out the unused bits, and create an Ipv4Instance with this address.
     uint32_t ip4 = ntohl(address->ip()->ipv4()->address());
@@ -161,17 +159,16 @@ InstanceConstSharedPtr CidrRange::truncateIpAddressAndLength(InstanceConstShared
     sa4.sin_family = AF_INET;
     sa4.sin_port = htons(0);
     sa4.sin_addr.s_addr = htonl(ip4);
-    return std::make_shared<Ipv4Instance>(&sa4);
+    return std::make_tuple(std::make_shared<Ipv4Instance>(&sa4), length);
   }
 
   case IpVersion::v6: {
     if (length >= 128) {
       // We're using all of the bits, so don't need to create a new address instance.
-      *length_io = 128;
-      return address;
+      return std::make_tuple(address, 128);
     } else if (length == 0) {
       // Create an Ipv6Instance with only a port, which will thus have the any address.
-      return std::make_shared<Ipv6Instance>(uint32_t(0));
+      return std::make_tuple(std::make_shared<Ipv6Instance>(uint32_t(0)), 0);
     }
     sockaddr_in6 sa6;
     memset(&sa6, 0, sizeof(sa6));
@@ -188,10 +185,12 @@ InstanceConstSharedPtr CidrRange::truncateIpAddressAndLength(InstanceConstShared
     absl::uint128 ip6_htonl = Utility::Ip6htonl(ip6);
     static_assert(sizeof(absl::uint128) == 16, "The size of asbl::uint128 is not 16.");
     safeMemcpy(&sa6.sin6_addr.s6_addr, &ip6_htonl);
-    return std::make_shared<Ipv6Instance>(sa6);
+    return std::make_tuple(std::make_shared<Ipv6Instance>(sa6), 0);
   }
   }
-  PANIC_DUE_TO_CORRUPT_ENUM;
+
+  IS_ENVOY_BUG("unexpected ip version")
+  return std::make_tuple(nullptr, -1);
 }
 
 IpList::IpList(const Protobuf::RepeatedPtrField<envoy::config::core::v3::CidrRange>& cidrs) {

@@ -256,6 +256,16 @@ ListenerManagerImpl::ListenerManagerImpl(Instance& server,
 
 ProtobufTypes::MessagePtr
 ListenerManagerImpl::dumpListenerConfigs(const Matchers::StringMatcher& name_matcher) {
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
+  std::cout << "Dumping listener configs!!\n";
   auto config_dump = std::make_unique<envoy::admin::v3::ListenersConfigDump>();
   config_dump->set_version_info(lds_api_ != nullptr ? lds_api_->versionInfo() : "");
 
@@ -608,6 +618,7 @@ void ListenerManagerImpl::addListenerToWorker(Worker& worker,
   if (overridden_listener.has_value()) {
     ENVOY_LOG(debug, "replacing existing listener {}", overridden_listener.value());
   }
+  std::cout << "Adding listener to worker\n"; 
   worker.addListener(
       overridden_listener, listener,
       [this, completion_callback]() -> void {
@@ -811,7 +822,9 @@ void ListenerManagerImpl::startWorkers(GuardDog& guard_dog, std::function<void()
       removeListenerInternal(listener->name(), false);
       continue;
     }
+    auto i = 0;
     for (const auto& worker : workers_) {
+      std::cout << absl::StrCat("Starting worker: ", i) << std::endl;
       addListenerToWorker(*worker, absl::nullopt, *listener,
                           [this, listeners_pending_init, callback]() {
                             if (--(*listeners_pending_init) == 0) {

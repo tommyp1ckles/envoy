@@ -29,7 +29,8 @@ public:
     hash_policy_config_->clear_policy_specifier();
     additionalSetup();
 
-    hash_policy_ = std::make_unique<HashPolicyImpl>(config_.hash_policies());
+    //hash_policy_ = std::make_unique<HashPolicyImpl>(config_.hash_policies());
+    hash_policy_ = HashPolicyFactoryImpl::create(route._hash.hash_policies());
   }
 
   virtual void additionalSetup(){

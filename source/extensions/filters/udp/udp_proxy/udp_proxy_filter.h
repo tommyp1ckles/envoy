@@ -80,7 +80,8 @@ public:
           "is not running with the CAP_NET_ADMIN capability.");
     }
     if (!config.hash_policies().empty()) {
-      hash_policy_ = std::make_unique<HashPolicyImpl>(config.hash_policies());
+      //hash_policy_ = std::make_unique<HashPolicyImpl>(config.hash_policies());
+      hash_policy_ = HashPolicyFactoryImpl::create(config.hash_policies());
     }
   }
 

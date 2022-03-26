@@ -182,7 +182,8 @@ private:
         const absl::optional<envoy::config::route::v3::RetryPolicy>& retry_policy)
         : cluster_name_(parent.cluster_->name()), timeout_(timeout) {
       if (!hash_policy.empty()) {
-        hash_policy_ = std::make_unique<HashPolicyImpl>(hash_policy);
+        //hash_policy_ = std::make_unique<HashPolicyImpl>(hash_policy);
+        hash_policy_ = HashPolicyFactoryImpl::create(hash_policy);
       }
       if (retry_policy.has_value()) {
         // ProtobufMessage::getStrictValidationVisitor() ?  how often do we do this?
@@ -282,7 +283,8 @@ private:
     bool includeAttemptCountInResponse() const override { return false; }
     const Router::RouteEntry::UpgradeMap& upgradeMap() const override { return upgrade_map_; }
     const std::string& routeName() const override { return route_name_; }
-    std::unique_ptr<const HashPolicyImpl> hash_policy_;
+    //std::unique_ptr<const HashPolicyImpl> hash_policy_;
+    HashPolicyPtr hash_policy_;
     std::unique_ptr<Router::RetryPolicy> retry_policy_;
 
     static const NullHedgePolicy hedge_policy_;

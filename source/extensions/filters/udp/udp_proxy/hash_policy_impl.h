@@ -12,6 +12,10 @@ namespace UdpProxy {
 
 using namespace envoy::extensions::filters::udp::udp_proxy::v3;
 
+class HashMethodFactoryImpl {
+  static HashMethodPtr create(const absl::Span<const UdpProxyConfig::HashPolicyPtr>& hash_policies);
+}
+
 /**
  * Implementation of HashPolicy that reads from the UDP proxy filter config.
  */
